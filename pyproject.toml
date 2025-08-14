@@ -7,4 +7,39 @@ requires-python = ">=3.12"
 dependencies = [
     "flax>=0.11.1",
     "jax>=0.7.0",
+    "matplotlib>=3.10.5",
+    "pytest (>=8.4.1,<9.0.0)",
 ]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+    "ruff>=0.12.9",
+]
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py312"
+
+# Enable rules (can be expanded later)
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+]
+ignore = [
+    "E501",  # Let Ruff handle line length automatically
+]
+
+# Sorting imports with Ruff's isort
+[tool.ruff.isort]
+combine-as-imports = true
+force-single-line = false
+
+# Autoformatting options
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"
