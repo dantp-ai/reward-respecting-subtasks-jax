@@ -1,19 +1,18 @@
 [project]
 name = "reward-respecting-subtasks-jax"
 version = "0.1.0"
-description = "Implementation in Jax of the Reward Respecting Subtasks"
+description = "A small, equation-oriented JAX reproduction of Reward-Respecting Subtasks for Model-Based Reinforcement Learning"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "flax>=0.11.1",
     "jax>=0.7.0",
     "matplotlib>=3.10.5",
-    "pytest (>=8.4.1,<9.0.0)",
 ]
 
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",
+    "pytest>=8.4.1,<9.0.0",
     "ruff>=0.12.9",
 ]
 
