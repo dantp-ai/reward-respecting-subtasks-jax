@@ -14,9 +14,13 @@ uv run python -m rrs.experiments.two_room
 ```
 
 The last command writes `artifacts/two_room/baseline.json` and
-`artifacts/two_room/optimal_route.png`. Generated files are ignored by Git.
-Use `--output-dir PATH` to choose another destination. The default seed is 0;
-`--seed N` changes the explicit PRNG key, but this environment is deterministic.
+[the optimal route figure](../figures/milestone_01_two_room_optimal_route.png).
+Figures are saved in `figures/` and committed with their milestone, using the
+naming convention `milestone_<NN>_<description>.<extension>`.
+The JSON report remains ignored by Git and records the milestone and figure path.
+Use `--output-dir PATH` to change the report directory and `--figures-dir PATH`
+to change the figure directory. The default seed is 0; `--seed N` changes the
+explicit PRNG key, but this environment is deterministic.
 
 ## Result
 

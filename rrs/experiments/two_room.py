@@ -141,9 +141,21 @@ def _revision():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output-dir", type=Path, default=Path("artifacts/two_room"))
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("artifacts/two_room"),
+        help="Directory for the JSON baseline report",
+    )
+    parser.add_argument(
+        "--figures-dir",
+        type=Path,
+        default=Path("figures"),
+        help="Directory for milestone-named figures",
+    )
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
+    figure_path = args.figures_dir / "milestone_01_two_room_optimal_route.png"
     params = two_room.default_params()
     positions, model = build_model(params)
     gamma, tolerance = 0.99, 1e-12
@@ -160,6 +172,8 @@ def main():
         raise RuntimeError("Two-room baseline failed milestone acceptance checks")
     revision, dirty = _revision()
     report = {
+        "milestone": "01-two-room-foundation",
+        "figure": figure_path.as_posix(),
         "paper_target": "Section 1, Figures 1–2: start value gamma**17",
         "seed": args.seed,
         "independent_runs": 1,
@@ -197,12 +211,14 @@ def main():
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "baseline.json").write_text(json.dumps(report, indent=2) + "\n")
-    plot_route(params, route, args.output_dir / "optimal_route.png")
+    args.figures_dir.mkdir(parents=True, exist_ok=True)
+    plot_route(params, route, figure_path)
     print(f"Start value: {start_value:.15f} (target {gamma**17:.15f})")
     print(
         f"Bellman residual: {result.bellman_residual:.3g}; iterations: {result.iterations}"
     )
     print(f"Route: {len(actions)} actions; output: {args.output_dir}")
+    print(f"Figure: {figure_path}")
 
 
 if __name__ == "__main__":
