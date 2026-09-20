@@ -131,3 +131,7 @@ dmypy.json
 specs/*
 
 .DS_Store
+
+# Generated milestone reports and local lint cache
+/artifacts/
+.ruff_cache/
