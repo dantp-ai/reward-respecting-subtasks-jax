@@ -1,0 +1,1 @@
+"""Transparent mathematical reference algorithms."""
