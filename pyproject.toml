@@ -1,19 +1,18 @@
 [project]
 name = "reward-respecting-subtasks-jax"
 version = "0.1.0"
-description = "Implementation in Jax of the Reward Respecting Subtasks"
+description = "A small, equation-oriented JAX reproduction of Reward-Respecting Subtasks for Model-Based Reinforcement Learning"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "flax>=0.11.1",
     "jax>=0.7.0",
     "matplotlib>=3.10.5",
-    "pytest (>=8.4.1,<9.0.0)",
 ]
 
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",
+    "pytest>=8.4.1,<9.0.0",
     "ruff>=0.12.9",
 ]
 
@@ -22,18 +21,24 @@ line-length = 88
 indent-width = 4
 target-version = "py312"
 
+[tool.ruff.lint]
 # Enable rules (can be expanded later)
 select = [
+    "C90", # McCabe complexity
     "E",   # pycodestyle errors
     "F",   # pyflakes
     "I",   # isort
+    "W",   # pycodestyle warnings
 ]
 ignore = [
     "E501",  # Let Ruff handle line length automatically
 ]
 
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
 # Sorting imports with Ruff's isort
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 combine-as-imports = true
 force-single-line = false
 
@@ -43,3 +48,7 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "lf"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
