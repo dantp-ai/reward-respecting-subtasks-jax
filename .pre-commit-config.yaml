@@ -12,25 +12,9 @@ repos:
         args: ['--maxkb=10240']
       - id: debug-statements
       - id: detect-private-key
-  - repo: https://github.com/asottile/reorder_python_imports
-    rev: v2.3.0
-    hooks:
-    - id: reorder-python-imports
-      language_version: python
-  # - repo: https://github.com/psf/black
-  #   rev: 22.3.0
-  #   hooks:
-  #     - id: black
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.9  # Match your installed Ruff version
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix]  # Auto-fix lint issues
-      - id: ruff-format  # Format code (Black alternative)
-  - repo: https://github.com/PyCQA/flake8
-    rev: 3.9.2
-    hooks:
-      - id: flake8
-        exclude: (notebooks)
-        args: ['--ignore=E203,E501,W503,E231', '--max-line-length=79', '--max-complexity=15', '--select=B,C,E,F,W,T4,B9']
-        language_version: python
+      - id: ruff-format
