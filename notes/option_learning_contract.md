@@ -1,6 +1,7 @@
 # Off-policy hallway option learning contract
 
 Milestone 3, branch `milestone/03-hallway-option-learning` from master `561c331`.
+[Issue #5](https://github.com/dantp-ai/reward-respecting-subtasks-jax/issues/5).
 Source: [paper Section 3, Equations 3–11 and UWT](https://arxiv.org/html/2202.03466v4#S3).
 The environment, features and fixed subtask are specified in
 [Milestone 2](hallway_options_contract.md). Model learning and planning are separate.
