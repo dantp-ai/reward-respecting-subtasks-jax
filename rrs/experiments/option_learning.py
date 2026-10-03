@@ -132,3 +132,61 @@ def train(
     final, critics = jax.lax.scan(block, initial, None, length=steps // checkpoint)
     critics = jnp.concatenate((initial.weights.critic[None], critics))
     return TrainingResult(final, critics)
+
+
+def main():
+    import argparse
+    import json
+    from pathlib import Path
+
+    from rrs.experiments.hallway import build_baselines
+    from rrs.experiments.learning_report import build_report, plot_results
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output-dir", type=Path, default=Path("artifacts/option_learning")
+    )
+    parser.add_argument("--figures-dir", type=Path, default=Path("figures"))
+    args = parser.parse_args()
+    seeds, steps, checkpoint = tuple(range(100)), 50_000, 500
+    parameters, problem = LearningParameters(), training_problem()
+    print(f"Training {len(seeds)} seeds for {steps:,} transitions each", flush=True)
+    result = jax.vmap(lambda seed: train(seed, problem, steps, checkpoint, parameters))(
+        jnp.array(seeds)
+    )
+    result.critics.block_until_ready()
+    print("Training complete; evaluating stochastic policies", flush=True)
+    data = build_baselines()
+    report = build_report(
+        data, result, seeds, steps, checkpoint, parameters, progress=True
+    )
+    figures = plot_results(data, report, args.figures_dir)
+    report["figures"] = [str(path) for path in figures]
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    path = args.output_dir / "learning.json"
+    path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+    print(
+        json.dumps(
+            {
+                "summary": {
+                    key: {
+                        k: v[-1] if isinstance(v, list) else v for k, v in value.items()
+                    }
+                    for key, value in report["summary"].items()
+                },
+                "acceptance": report["acceptance"],
+            },
+            indent=2,
+        )
+    )
+    print(f"Report: {path}")
+    for figure in figures:
+        print(f"Figure: {figure}")
+    if not all(report["acceptance"].values()):
+        raise SystemExit(
+            "Frozen acceptance criteria failed; results preserved for diagnosis"
+        )
+
+
+if __name__ == "__main__":
+    main()
