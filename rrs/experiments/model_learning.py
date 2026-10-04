@@ -136,3 +136,113 @@ def train_block(
 
     state, _ = jax.lax.scan(transition, state, None, length=steps)
     return state
+
+
+def main():
+    import argparse
+    import json
+    from pathlib import Path
+
+    from rrs.experiments.hallway import build_baselines
+    from rrs.experiments.model_audit import audit_hallway_model
+    from rrs.experiments.model_report import (
+        build_references,
+        build_report,
+        model_rmse,
+        plot_results,
+        save_checkpoint,
+    )
+    from rrs.experiments.option_learning import train as train_option, training_problem
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output-dir", type=Path, default=Path("artifacts/model_learning")
+    )
+    parser.add_argument("--figures-dir", type=Path, default=Path("figures"))
+    args = parser.parse_args()
+    problem, data = training_problem(), build_baselines()
+    print("Regenerating and freezing the Milestone 3 option (seed 0)", flush=True)
+    frozen = train_option(0, problem).final.weights
+    options = freeze_options(data, frozen)
+    oracles, targets = build_references(data, options)
+    pi, beta = option_tables(options, data)
+    print("Auditing the frozen model with 40,000 independent rollouts", flush=True)
+    audits = audit_hallway_model(
+        data, pi[4].tolist(), beta[4].tolist(), oracles[4].model
+    )
+    seeds, steps, checkpoint = tuple(range(1000, 1100)), 50_000, 500
+    parameters = ModelLearningParameters()
+    state = jax.vmap(lambda seed: initialize(seed, problem))(jnp.array(seeds))
+    advance = jax.jit(
+        jax.vmap(
+            lambda state: train_block(state, problem, options, checkpoint, parameters)
+        )
+    )
+    history, artifacts, finite = [], [], True
+    print(
+        f"Training {len(seeds)} seeds for {steps:,} model-learning transitions each",
+        flush=True,
+    )
+    for step in range(0, steps + 1, checkpoint):
+        if step:
+            state = advance(state)
+        errors = model_rmse(state.learners.model, targets)
+        history.append(errors)
+        finite = finite and all(
+            bool(jnp.isfinite(x).all())
+            for x in jax.tree.leaves((state.learners, errors))
+        )
+        if step in (0, 10_000, 20_000, 50_000):
+            path = args.output_dir / f"models_step_{step:05d}.json.gz"
+            artifacts.append(
+                save_checkpoint(path, state.learners.model, step, seeds, data)
+            )
+        if step % 5000 == 0:
+            print(
+                f"Model training: {step:,}/{steps:,} transitions per seed", flush=True
+            )
+    report = build_report(
+        data,
+        frozen,
+        options,
+        oracles,
+        targets,
+        state,
+        history,
+        seeds,
+        steps,
+        checkpoint,
+        parameters,
+        audits,
+        artifacts,
+        finite,
+    )
+    figures = plot_results(
+        data, report, state.learners.model, targets, args.figures_dir
+    )
+    report["figures"] = [str(path) for path in figures]
+    report_path = args.output_dir / "learning.json"
+    report_path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+    print(
+        json.dumps(
+            {
+                "final_mean_errors": {
+                    name: {key: value["mean"][-1] for key, value in metrics.items()}
+                    for name, metrics in report["summary"].items()
+                },
+                "all_acceptance_passed": all(report["acceptance"].values()),
+            },
+            indent=2,
+        )
+    )
+    print(f"Report: {report_path}")
+    for path in figures:
+        print(f"Figure: {path}")
+    if not all(report["acceptance"].values()):
+        raise SystemExit(
+            "Frozen acceptance criteria failed; results preserved for diagnosis"
+        )
+
+
+if __name__ == "__main__":
+    main()
