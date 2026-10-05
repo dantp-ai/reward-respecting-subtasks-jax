@@ -124,3 +124,99 @@ def build_cases(data, inputs):
             pi = optimal_pi if source == "exact_optimal" else frozen_pi
             cases.append(PlanningCase(source, name, subset, pi[indices]))
     return cases
+
+
+def main():
+    import argparse
+    import json
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from rrs.experiments.hallway import build_baselines
+    from rrs.experiments.learning_report import reference_model
+    from rrs.experiments.planning_inputs import load_inputs
+    from rrs.experiments.planning_report import build_report, case_report, plot_results
+    from rrs.rl.exact import value_iteration
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--model-dir", type=Path, default=Path("artifacts/model_learning")
+    )
+    parser.add_argument("--output-dir", type=Path, default=Path("artifacts/planning"))
+    parser.add_argument("--figures-dir", type=Path, default=Path("figures"))
+    args = parser.parse_args()
+    if not (args.model_dir / "learning.json").exists():
+        print(
+            "Milestone 4 report absent; regenerating its canonical experiment",
+            flush=True,
+        )
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "rrs.experiments.model_learning",
+                "--output-dir",
+                str(args.model_dir),
+                "--figures-dir",
+                str(args.figures_dir),
+            ],
+            check=True,
+        )
+    data = build_baselines()
+    inputs = load_inputs(
+        args.model_dir, [data.positions[i] for i in data.nonterminal_indices]
+    )
+    environment = reference_model(data.positions)
+    optimum = value_iteration(environment).values
+    seeds = list(range(2000, 2100))
+    checkpoints = list(range(0, 20_001, 100))
+    state_orders = jax.vmap(
+        lambda seed: sample_states(seed, len(data.nonterminal_indices), 5000)
+    )(jnp.array(seeds))
+    cases = {}
+    for case in build_cases(data, inputs):
+        result = jax.vmap(run_plan)(case.models, state_orders)
+        cases[case.name] = case_report(
+            data,
+            case,
+            result,
+            seeds,
+            inputs.provenance["model_seeds"],
+            environment,
+            optimum,
+            checkpoints,
+            EVALUATION_BUDGETS,
+        )
+        summary = cases[case.name]["summary"]
+        print(
+            f"{case.name}: planned={summary['planned_start']['mean'][-1]:.6f}, "
+            f"actual={summary['actual_return']['mean'][-1]:.6f}",
+            flush=True,
+        )
+    report = build_report(
+        data, inputs, cases, seeds, checkpoints, EVALUATION_BUDGETS, optimum
+    )
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    path = args.output_dir / "planning.json"
+    path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+    figures = plot_results(report, args.figures_dir)
+    print(
+        json.dumps(
+            {
+                "report": str(path),
+                "figures": [str(p) for p in figures],
+                "acceptance": report["acceptance"],
+            },
+            indent=2,
+        ),
+        flush=True,
+    )
+    if not all(report["acceptance"].values()):
+        raise RuntimeError(
+            "Frozen acceptance criteria failed; results preserved for diagnosis"
+        )
+
+
+if __name__ == "__main__":
+    main()
