@@ -110,13 +110,17 @@ def load_inputs(
         MODEL_STEPS
     ):
         raise ValueError("Source report must contain all four model checkpoints")
-    checkpoints, sources = {}, []
+    checkpoints, sources, missing = {}, [], []
     for entry in entries:
         step = entry["step"]
         name = f"models_step_{step:05d}.json.gz"
         if Path(entry["path"]).name != name:
             raise ValueError("Checkpoint filename does not match its step")
-        encoded = (directory / name).read_bytes()
+        try:
+            encoded = (directory / name).read_bytes()
+        except FileNotFoundError:
+            missing.append(name)
+            continue  # Validate every existing file before allowing regeneration.
         digest = hashlib.sha256(encoded).hexdigest()
         if digest != entry["sha256"]:
             raise ValueError(f"Checkpoint hash mismatch: {name}")
@@ -125,6 +129,8 @@ def load_inputs(
             raise ValueError("Checkpoint step does not match the report")
         checkpoints[step] = _checkpoint(payload, features, seeds)
         sources.append({"step": step, "path": str(directory / name), "sha256": digest})
+    if missing:
+        raise FileNotFoundError(f"Missing model checkpoints: {', '.join(missing)}")
     return PlanningInputs(
         options,
         checkpoints,

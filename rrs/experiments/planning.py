@@ -146,9 +146,13 @@ def main():
     parser.add_argument("--output-dir", type=Path, default=Path("artifacts/planning"))
     parser.add_argument("--figures-dir", type=Path, default=Path("figures"))
     args = parser.parse_args()
-    if not (args.model_dir / "learning.json").exists():
+    data = build_baselines()
+    feature_positions = [data.positions[i] for i in data.nonterminal_indices]
+    try:
+        inputs = load_inputs(args.model_dir, feature_positions)
+    except FileNotFoundError:
         print(
-            "Milestone 4 report absent; regenerating its canonical experiment",
+            "Milestone 4 artifacts absent; regenerating its canonical experiment",
             flush=True,
         )
         subprocess.run(
@@ -163,10 +167,7 @@ def main():
             ],
             check=True,
         )
-    data = build_baselines()
-    inputs = load_inputs(
-        args.model_dir, [data.positions[i] for i in data.nonterminal_indices]
-    )
+        inputs = load_inputs(args.model_dir, feature_positions)
     environment = reference_model(data.positions)
     optimum = value_iteration(environment).values
     seeds = list(range(2000, 2100))

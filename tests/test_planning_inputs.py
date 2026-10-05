@@ -101,3 +101,13 @@ def test_feature_order_must_match_the_current_representation(artifacts):
     directory, features, seeds = artifacts
     with pytest.raises(ValueError, match="order"):
         load_inputs(directory, features[::-1], seeds)
+
+
+def test_missing_checkpoint_allows_regeneration_but_does_not_hide_corruption(artifacts):
+    directory, features, seeds = artifacts
+    (directory / "models_step_00000.json.gz").unlink()
+    with pytest.raises(FileNotFoundError, match="models_step_00000"):
+        load_inputs(directory, features, seeds)
+    (directory / "models_step_50000.json.gz").write_bytes(b"corrupt")
+    with pytest.raises(ValueError, match="hash mismatch"):
+        load_inputs(directory, features, seeds)
