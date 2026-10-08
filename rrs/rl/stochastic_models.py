@@ -5,7 +5,23 @@ from dataclasses import dataclass
 
 from rrs.rl.exact import DeterministicModel
 from rrs.rl.option_models import ExactOptionModel
-from rrs.rl.policy_evaluation import _policy_rows
+from rrs.rl.stochastic_exact import StochasticModel, Transition
+from rrs.rl.stochastic_subtasks import _policy_rows
+
+
+def _stochastic(model):
+    """Embed deterministic dynamics without changing existing callers."""
+    if isinstance(model, DeterministicModel):
+        return StochasticModel(
+            tuple(
+                tuple(
+                    (Transition(1.0, ns, model.rewards[s][a], model.terminated[s][a]),)
+                    for a, ns in enumerate(row)
+                )
+                for s, row in enumerate(model.next_states)
+            )
+        )
+    return model
 
 
 @dataclass(frozen=True)
@@ -23,14 +39,19 @@ def _assert_proper(model, pi, beta, terminal):
         previous = len(reachable)
         for s, row in enumerate(pi):
             for a, p in enumerate(row):
-                ns = model.next_states[s][a]
-                if p > 0 and (
-                    model.terminated[s][a]
-                    or terminal[ns]
-                    or beta[ns] > 0
-                    or ns in reachable
-                ):
-                    reachable.add(s)
+                for outcome in model.transitions[s][a]:
+                    ns = outcome.next_state
+                    if (
+                        p > 0
+                        and outcome.probability > 0
+                        and (
+                            outcome.terminated
+                            or terminal[ns]
+                            or beta[ns] > 0
+                            or ns in reachable
+                        )
+                    ):
+                        reachable.add(s)
         if len(reachable) == previous:
             break
     if len(reachable) != len(terminal):
@@ -43,16 +64,18 @@ def _model_system(model, pi, beta, features, terminal, gamma):
     for s, row in enumerate(pi):
         offset, continuation = [0.0] * width, {}
         if not terminal[s]:
-            for a, p in enumerate(row):
-                ns = model.next_states[s][a]
-                offset[0] += p * model.rewards[s][a]
-                if model.terminated[s][a] or terminal[ns]:
-                    continue
-                for j, x in enumerate(features[ns], start=1):
-                    offset[j] += p * gamma * beta[ns] * x
-                coefficient = p * gamma * (1 - beta[ns])
-                if coefficient:
-                    continuation[ns] = continuation.get(ns, 0.0) + coefficient
+            for a, p_action in enumerate(row):
+                for outcome in model.transitions[s][a]:
+                    ns = outcome.next_state
+                    p = p_action * outcome.probability
+                    offset[0] += p * outcome.reward
+                    if outcome.terminated or terminal[ns]:
+                        continue
+                    for j, x in enumerate(features[ns], start=1):
+                        offset[j] += p * gamma * beta[ns] * x
+                    coefficient = p * gamma * (1 - beta[ns])
+                    if coefficient:
+                        continuation[ns] = continuation.get(ns, 0.0) + coefficient
         offsets.append(tuple(offset))
         kernel.append(tuple(continuation.items()))
     return offsets, kernel
@@ -69,7 +92,7 @@ def _backup(offsets, kernel, values):
 
 
 def stochastic_option_model(
-    model: DeterministicModel,
+    model: DeterministicModel | StochasticModel,
     probabilities,
     stopping,
     features,
@@ -84,7 +107,8 @@ def stochastic_option_model(
     columns for the existing prediction API. Residual/(1-gamma) bounds the
     absolute error in every reward and successor coefficient.
     """
-    n = len(model.next_states)
+    model = _stochastic(model)
+    n = len(model.transitions)
     if (
         not 0 <= gamma < 1
         or not math.isfinite(tolerance)
