@@ -35,10 +35,45 @@ def plot_results(report, directory):
     ]
     paths = []
     for suffix, title, keys in sets:
+        if suffix == "model_maturity":
+            fig, axes = plt.subplots(1, 2, figsize=(11, 4.8), layout="constrained")
+            steps = (0, 10_000, 20_000, 30_000, 40_000, 200_000)
+            for ax, metric, ylabel in zip(
+                axes,
+                ("planned_start", "actual_return"),
+                ("Planned start value at 1.6M look-aheads", "Actual return at 1.6M look-aheads"),
+                strict=True,
+            ):
+                for configuration, label in (
+                    ("actions", "Primitive models"),
+                    ("actions_and_options", "Primitive + option models"),
+                ):
+                    means, errors = [], []
+                    for step in steps:
+                        stats = cases[f"learned_{step:06d}/{configuration}"]["summary"][metric]
+                        means.append(stats["mean"][-1])
+                        errors.append(stats["se"][-1])
+                    (line,) = ax.plot(steps, means, marker="o", label=label)
+                    ax.fill_between(
+                        steps,
+                        [m - e for m, e in zip(means, errors, strict=True)],
+                        [m + e for m, e in zip(means, errors, strict=True)],
+                        color=line.get_color(),
+                        alpha=0.18,
+                    )
+                ax.set(xlabel="Model-training transitions", ylabel=ylabel)
+                ax.axhline(optimal, color="black", linestyle="--", linewidth=1, label="Main-task optimum")
+                ax.grid(alpha=0.2)
+                ax.legend(fontsize=9, loc="best")
+            fig.suptitle("Milestone 9 — Model maturity at a fixed 1.6M planning budget\n30 seeds; shading ±1 standard error")
+            path = directory / "milestone_09_model_maturity.png"
+            fig.savefig(path, dpi=160)
+            plt.close(fig)
+            paths.append(path)
+            continue
         fig, axes = plt.subplots(1, 2, figsize=(13, 4.8), layout="constrained")
         for key in keys:
             case = cases[key]
-            x = evaluations if key.endswith("actions") and key.startswith("learned_") else None
             for ax, metric, axis in zip(
                 axes,
                 ("planned_start", "actual_return"),
