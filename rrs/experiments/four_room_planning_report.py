@@ -72,7 +72,8 @@ def build_report(data, inputs, cases, references, optimal_values, provenance):
                 c["planning_lookaheads_per_run"] == 1_600_000 for c in cases.values()
             ),
             "all_policy_error_bounds_within_1e-8": all(
-                max(max(row) for row in c["evaluation_error_bounds"]) <= 1e-8
+                max(max(run["evaluation_error_bounds"]) for run in c["runs"])
+                <= 1e-8
                 for c in cases.values()
             ),
             "exact_primitive_final_values_within_1e-5": max(
