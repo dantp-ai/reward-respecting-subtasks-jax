@@ -352,7 +352,14 @@ def main():
         name = f"{case[0]}/{case[1]}"
         print(f"Planning {name}", flush=True)
         # case_report also performs the independent execution-policy audit.
-        result = jax.vmap(run_plan)(case[2], state_orders)
+        result = jax.vmap(
+            lambda models, order: run_plan(
+                models,
+                order,
+                lookahead_budget=LOOKAHEAD_BUDGET,
+                checkpoint=CHECKPOINT,
+            )
+        )(case[2], state_orders)
         cases[name] = plan_case(data, case, result, optimum, environment)
         traces[name] = result.history
         print(
