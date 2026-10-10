@@ -212,7 +212,8 @@ def _evaluate_policies(weights, models, policies, features, checkpoint_indices):
             weights_at_checkpoint, models, policies, features
         )
 
-    return jax.vmap(evaluate)(weights[:, jnp.array(checkpoint_indices)])
+    selected = weights[:, jnp.array(checkpoint_indices)].transpose((1, 0, 2))
+    return jax.vmap(evaluate)(selected)
 
 
 def plan_case(data, case, result, optimal_values, evaluation_environment):
