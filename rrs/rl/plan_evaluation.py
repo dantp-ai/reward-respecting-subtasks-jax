@@ -1,5 +1,7 @@
 """Appendix B execution policy and independent discounted policy evaluation."""
 
+import math
+
 from typing import NamedTuple
 
 import jax
@@ -59,15 +61,24 @@ def _reachable(model, pi, start, terminal):
     while pending:
         state = pending.pop()
         for a, p in enumerate(pi[state]):
-            ns = model.next_states[state][a]
-            if (
-                p > 0
-                and not model.terminated[state][a]
-                and not terminal[ns]
-                and ns not in seen
-            ):
-                seen.add(ns)
-                pending.append(ns)
+            transitions = (
+                (
+                    (o.probability, o.next_state, o.terminated)
+                    for o in model.transitions[state][a]
+                )
+                if hasattr(model, "transitions")
+                else ((1.0, model.next_states[state][a], model.terminated[state][a]),)
+            )
+            for p_outcome, ns, done in transitions:
+                if (
+                    p > 0
+                    and p_outcome > 0
+                    and not done
+                    and not terminal[ns]
+                    and ns not in seen
+                ):
+                    seen.add(ns)
+                    pending.append(ns)
     return sorted(seen)
 
 
@@ -81,11 +92,24 @@ def evaluate_action_policy(
     """
     if not 0 <= gamma < 1:
         raise ValueError("gamma must be in [0,1)")
-    if len(terminal_states) != len(model.next_states) or not 0 <= start < len(
+    transitions = model.transitions if hasattr(model, "transitions") else model.next_states
+    if len(terminal_states) != len(transitions) or not 0 <= start < len(
         terminal_states
     ):
         raise ValueError("Terminal mask and start must match the model")
-    pi = _policy_rows(model, probabilities)
+    if len(probabilities) != len(transitions):
+        raise ValueError("Policy dimensions must match the model")
+    pi = []
+    for row, outcomes in zip(probabilities, transitions, strict=True):
+        if (
+            len(row) != len(outcomes)
+            or any(not math.isfinite(p) or p < 0 for p in row)
+            or abs(math.fsum(row) - 1) > 1e-6
+        ):
+            raise ValueError("Policy rows must be finite probability distributions")
+        total = math.fsum(row)
+        pi.append(tuple(p / total for p in row))
+    pi = tuple(pi)
     if terminal_states[start]:
         return PolicyReturn(0.0, 0.0, 0)
     states = _reachable(model, pi, start, terminal_states)
@@ -94,11 +118,34 @@ def evaluate_action_policy(
     for s in states:
         row, reward = [0.0] * len(states), 0.0
         row[indices[s]] = 1.0
-        for a, p in enumerate(pi[s]):
-            ns = model.next_states[s][a]
-            reward += p * model.rewards[s][a]
-            if p and not model.terminated[s][a] and not terminal_states[ns]:
-                row[indices[ns]] -= gamma * p
+        for a, p_action in enumerate(pi[s]):
+            transitions = (
+                model.transitions[s][a]
+                if hasattr(model, "transitions")
+                else (
+                    (
+                        1.0,
+                        model.next_states[s][a],
+                        model.rewards[s][a],
+                        model.terminated[s][a],
+                    ),
+                )
+            )
+            for transition in transitions:
+                p_outcome, ns, step_reward, done = (
+                    (
+                        transition.probability,
+                        transition.next_state,
+                        transition.reward,
+                        transition.terminated,
+                    )
+                    if hasattr(model, "transitions")
+                    else transition
+                )
+                probability = p_action * p_outcome
+                reward += probability * step_reward
+                if probability and not done and not terminal_states[ns]:
+                    row[indices[ns]] -= gamma * probability
         matrix.append(row)
         rewards.append(reward)
     values = _solve(matrix, rewards)
