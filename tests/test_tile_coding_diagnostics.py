@@ -98,3 +98,34 @@ def test_sample_cap_is_an_error_and_not_silent_truncation():
         diagnostics.sampled_audit(
             data, pi, [False] * len(data.positions), samples=1, cap=3
         )
+
+
+def test_evaluation_retry_preserves_failure_and_unresolved_seed(monkeypatch):
+    data = build_baselines()
+    option = data.options["reward_respecting"]
+    pi = jax.nn.one_hot(jnp.array(option.policy), 4).tolist()
+    real_evaluate = diagnostics.evaluate_policy
+    budgets = []
+
+    def fail_once(*args, **kwargs):
+        budgets.append(kwargs["max_iterations"])
+        if len(budgets) == 1:
+            raise RuntimeError("unresolved probability bound")
+        return real_evaluate(*args, **kwargs)
+
+    monkeypatch.setattr(diagnostics, "evaluate_policy", fail_once)
+    rows = diagnostics.evaluate_tables(data, [pi], [option.stopping], seeds=[7])
+    assert budgets == [20_000, 200_000]
+    assert len(rows[0]["evaluation_failures"]) == 1
+    assert rows[0]["safe_hallway_probability"] == 1
+
+    def always_fail(*args, **kwargs):
+        raise RuntimeError("unresolved probability bound")
+
+    monkeypatch.setattr(diagnostics, "evaluate_policy", always_fail)
+    unresolved = diagnostics.evaluate_tables(data, [pi], [option.stopping], seeds=[8])
+    assert len(unresolved[0]["evaluation_failures"]) == 2
+    assert unresolved[0]["seed"] == 8
+    assert diagnostics.summarize(rows + unresolved, diagnostics.METRICS[1:]) == {
+        k: {"mean": None, "se": None} for k in diagnostics.METRICS[1:]
+    }

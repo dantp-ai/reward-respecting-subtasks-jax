@@ -1,6 +1,10 @@
 """Figures for the separately declared Milestone 10 investigation."""
 
 
+def _values(stats, key):
+    return [s[key] if s[key] is not None else float("nan") for s in stats]
+
+
 def plot_results(report, directory):
     import matplotlib
 
@@ -29,8 +33,8 @@ def plot_results(report, directory):
             stats = [cases[key]["summary"]["safe_hallway_probability"] for key in keys]
             ax.errorbar(
                 x,
-                [s["mean"] for s in stats],
-                yerr=[s["se"] for s in stats],
+                _values(stats, "mean"),
+                yerr=_values(stats, "se"),
                 marker="o",
                 capsize=4,
                 label=label,
@@ -52,6 +56,13 @@ def plot_results(report, directory):
     fig.suptitle(
         "Milestone 10 investigation — 100 paired seeds; error bars ±1 standard error"
     )
+    if report["evaluation_status"]["unresolved"]:
+        fig.text(
+            0.5,
+            0,
+            "Missing points indicate unresolved evaluation; see report",
+            ha="center",
+        )
     sensitivity = directory / "milestone_10_investigation_sensitivity.png"
     fig.savefig(sensitivity, dpi=160)
     plt.close(fig)
@@ -69,8 +80,8 @@ def plot_results(report, directory):
     ]
     axes[0].bar(
         range(len(names)),
-        [s["mean"] for s in stats],
-        yerr=[s["se"] for s in stats],
+        _values(stats, "mean"),
+        yerr=_values(stats, "se"),
         capsize=4,
         color=["C0", "C1", "C2", "C3", "C4"],
     )
@@ -99,8 +110,8 @@ def plot_results(report, directory):
     ]
     axes[1].bar(
         range(4),
-        [s["mean"] for s in stats],
-        yerr=[s["se"] for s in stats],
+        _values(stats, "mean"),
+        yerr=_values(stats, "se"),
         capsize=4,
         color=["C0", "C2", "C3", "C1"],
     )
@@ -123,6 +134,13 @@ def plot_results(report, directory):
     fig.suptitle(
         "Milestone 10 investigation — Learning components and final stopping; 100 paired seeds"
     )
+    if report["evaluation_status"]["unresolved"]:
+        fig.text(
+            0.5,
+            0,
+            "Missing bars indicate unresolved evaluation; see report",
+            ha="center",
+        )
     components = directory / "milestone_10_investigation_components.png"
     fig.savefig(components, dpi=160)
     plt.close(fig)

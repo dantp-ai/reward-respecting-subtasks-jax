@@ -195,17 +195,39 @@ def evaluate_tables(data, policies, stopping, seeds=SEEDS):
     start, target = data.positions.index((3, 1)), data.positions.index((3, 7))
     rows = []
     for seed, pi, beta in zip(seeds, policies, stopping, strict=True):
-        result = evaluate_policy(model, pi, beta, z, data.terminal, target)
+        failures = []
+        result = None
+        for budget in (20_000, 200_000):
+            try:
+                result = evaluate_policy(
+                    model, pi, beta, z, data.terminal, target, max_iterations=budget
+                )
+                break
+            except RuntimeError as error:
+                failures.append({"iteration_budget": budget, "error": str(error)})
         rows.append(
             {
                 "seed": seed,
-                "stochastic_start_value": result.values[start],
-                "safe_hallway_probability": result.safe_success[start],
-                "value_error_bound": result.value_error_bound,
-                "probability_gap": result.probability_gap,
+                "stochastic_start_value": result.values[start] if result else None,
+                "safe_hallway_probability": result.safe_success[start]
+                if result
+                else None,
+                "value_error_bound": result.value_error_bound if result else None,
+                "probability_gap": result.probability_gap if result else None,
+                "evaluation_failures": failures,
+                "evaluation_iterations": result.iterations if result else None,
             }
         )
     return rows
+
+
+def summarize(rows, metrics):
+    return {
+        key: mean_and_se([row[key] for row in rows])
+        if all(row[key] is not None for row in rows)
+        else {"mean": None, "se": None}
+        for key in metrics
+    }
 
 
 def snapshot_report(data, problem, run, index, seeds=SEEDS):
@@ -226,7 +248,7 @@ def snapshot_report(data, problem, run, index, seeds=SEEDS):
     for row, error in zip(rows, errors, strict=True):
         row["critic_rmse"] = error
     return {
-        "summary": {k: mean_and_se([r[k] for r in rows]) for k in METRICS},
+        "summary": summarize(rows, METRICS),
         "runs": rows,
     }
 
@@ -241,7 +263,7 @@ def swaps(data, source):
             stopping = [r["stopping"] for r in source["cases"][stopping_name]["runs"]]
             rows = evaluate_tables(data, policies, stopping)
             results[f"policy={policy_name},stopping={stopping_name}"] = {
-                "summary": {k: mean_and_se([r[k] for r in rows]) for k in METRICS[1:]},
+                "summary": summarize(rows, METRICS[1:]),
                 "runs": rows,
             }
     return results
@@ -450,6 +472,15 @@ def main():
         "policy_stopping_swaps": swapped,
         "independent_rollout_audits": audits,
         "archives": archives,
+        "evaluation_iteration_budgets": [20_000, 200_000],
+    }
+    evaluated = [
+        r for group in (cases, swapped) for case in group.values() for r in case["runs"]
+    ]
+    report["evaluation_status"] = {
+        "total": len(evaluated),
+        "retried": sum(bool(r["evaluation_failures"]) for r in evaluated),
+        "unresolved": sum(r["safe_hallway_probability"] is None for r in evaluated),
     }
     report["audit_passed"] = (
         geometry["independent_features_equal"]

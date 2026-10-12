@@ -67,6 +67,16 @@ figures to `figures/milestone_10_investigation_*.png`. Add findings to this note
 including causal limits and any protocol deviations. Never use an exact fitted
 value function or oracle stopping rule to train the experimental learners.
 
+## Evaluation-budget amendment
+
+The first diagnostic run at revision `e5f44cc` encountered an evaluation failure
+for the tiled alpha-0.2 comparison: the probability interval remained `5.68e-6`
+wide after the existing 20,000-iteration limit. Its training parameters were
+saved before evaluation. For the rerun, retain every initial failure and allow
+one retry with 200,000 evaluation iterations, keeping the `1e-8` accuracy
+threshold unchanged. If a retry fails, retain that seed and make the affected
+aggregate unavailable. No training settings or acceptance tolerances change.
+
 ## Reference
 
 Sutton and Barto, *Reinforcement Learning: An Introduction*, Section 9.5.4,
