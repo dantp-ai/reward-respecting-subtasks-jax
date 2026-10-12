@@ -1,6 +1,6 @@
 # Milestone 10: Tile-coded hallway-option learning
 
-Proposed implementation contract, prepared before any extension training.
+Implementation contract accepted on 2026-10-12 before any extension training.
 Issue [#19](https://github.com/dantp-ai/reward-respecting-subtasks-jax/issues/19).
 Branch `milestone/10-tile-coded-options`, from merged master `a0d0af6` (PR #18).
 Sources: local specs `08_representation_extensions.md`, `01_architecture.md`,
@@ -29,7 +29,7 @@ implementation and feature-facing actor/critic. No framework or inheritance
 hierarchy is needed. Actor, critic, and their traces use the selected feature
 dimension; observation IDs must not enter the learning equations.
 
-The proposed tile map uses four coordinate tilings, tile width `(2, 2)`, and
+The tile map uses four coordinate tilings, tile width `(2, 2)`, and
 offsets `(0, 0)`, `(0, 1)`, `(1, 0)`, `(1, 1)`, in that order. For each tiling,
 compute `floor((observation - offset) / width)` independently per coordinate.
 Within each tiling, sort the distinct tile-coordinate pairs occupied by legal
@@ -61,7 +61,7 @@ function isolates the prediction representation; it is not an experiment in
 attaining arbitrary tile features or replacing Equation 4 for nonzero main
 weights. Terminal arrival overrides the stopping value to zero.
 
-## Proposed paired experiment
+## Frozen paired experiment
 
 - Representations: existing one-hot and the single tile map above.
 - Seeds 0–99 for both; 50,000 behavior transitions per seed; metrics every 500
