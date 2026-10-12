@@ -49,6 +49,7 @@ def plot_results(report, directory):
         xscale="log",
     )
     axes[1].set_xticks([0.025, 0.05, 0.1, 0.2], ["0.025", "0.05", "0.1", "0.2"])
+    axes[1].minorticks_off()
     for ax in axes:
         ax.set(ylabel="Safe hallway attainment probability", ylim=(-0.03, 1.03))
         ax.grid(alpha=0.2)

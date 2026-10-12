@@ -73,6 +73,13 @@ of degradation for every seed.
 
 ## Interpretation and follow-up diagnostic
 
+The subsequent [controlled investigation](tile_coding_investigation.md) tests
+training budget, step sizes, actor/critic sharing, stopping maps and penalty
+boundaries. It finds recovery to 99.269% safe attainment at 200k transitions,
+with lower discounted return than one-hot, and localizes much of the early
+difficulty to policy generalization. These follow-up results supplement the
+frozen 50k comparison recorded here.
+
 This experiment supports a narrow finding: the prescribed feature sharing is
 harmful to option quality at this learning rate and finite data budget. It does
 not show that tile coding is generally worse, or that it cannot eventually
