@@ -23,8 +23,9 @@ def sample_model(
     samples=10_000,
     gamma=0.99,
     max_steps=10_000,
+    feature_rows=None,
 ):
-    """Sample actual environment rewards and gamma**K final one-hot features.
+    """Sample environment rewards and gamma**K final features (default one-hot).
 
     Sampling uses Python's explicit seeded RNG and the independent environment.
     A horizon overrun raises instead of silently biasing a truncated model.
@@ -37,10 +38,27 @@ def sample_model(
     features = {
         position: i for i, position in enumerate(p for p in positions if p != (6, 10))
     }
+    if feature_rows is None:
+        feature_rows = [
+            [float(features.get(p) == j) for j in range(len(features))]
+            for p in positions
+        ]
+    width = len(feature_rows[0]) if len(feature_rows) else 0
+    if (
+        len(feature_rows) != len(positions)
+        or not width
+        or any(
+            len(row) != width or any(not math.isfinite(x) for x in row)
+            for row in feature_rows
+        )
+    ):
+        raise ValueError("Feature rows must be finite and match positions")
+    if any(feature_rows[state_index[(6, 10)]]):
+        raise ValueError("Terminal features must be zero")
     cumulative = [tuple(itertools.accumulate(row)) for row in probabilities]
     rng = random.Random(seed)
     reward_sum, reward_squares = 0.0, 0.0
-    successor_sum, successor_squares = [0.0] * len(features), [0.0] * len(features)
+    successor_sum, successor_squares = [0.0] * width, [0.0] * width
     longest = 0
     for _ in range(samples):
         position, total, discount = start, 0.0, 1.0
@@ -54,9 +72,9 @@ def sample_model(
             discount *= gamma
             if done or rng.random() < stopping[state_index[position]]:
                 if not done:
-                    feature = features[position]
-                    successor_sum[feature] += discount
-                    successor_squares[feature] += discount * discount
+                    for feature, x in enumerate(feature_rows[state_index[position]]):
+                        successor_sum[feature] += discount * x
+                        successor_squares[feature] += (discount * x) ** 2
                 longest = max(longest, count)
                 break
         else:
