@@ -40,9 +40,20 @@ class PlanningRun(NamedTuple):
 
 
 @partial(jax.jit, static_argnames=("lookahead_budget", "checkpoint"))
-def run_plan(models, state_order, lookahead_budget=20_000, checkpoint=100, alpha=1.0):
+def run_plan(
+    models,
+    state_order,
+    lookahead_budget=20_000,
+    checkpoint=100,
+    alpha=1.0,
+    state_features=None,
+):
     """Use the supplied state prefix, spending one query per available model."""
     n_options, n_features = models.reward_weights.shape
+    if state_features is not None and (
+        state_features.ndim != 2 or state_features.shape[1] != n_features
+    ):
+        raise ValueError("State features must match model input dimension")
     if (
         lookahead_budget < 0
         or checkpoint < 1
@@ -61,7 +72,11 @@ def run_plan(models, state_order, lookahead_budget=20_000, checkpoint=100, alpha
     initial = jnp.zeros(n_features)
 
     def update(weights, state):
-        features = jax.nn.one_hot(state, n_features)
+        features = (
+            jax.nn.one_hot(state, n_features)
+            if state_features is None
+            else state_features[state]
+        )
         updated, _ = planning_step(weights, features, models, alpha)
         return updated, None
 

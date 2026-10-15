@@ -26,7 +26,9 @@ approximation. They do not replace learned options with optimal options.
 Validate Milestone 11's source report, frozen policies and all eight compressed
 checkpoints: hashes, schema, model/observation/feature order, seeds 2000–2099,
 gamma and learning parameters, checkpoint steps, dimensions, finiteness and
-terminal features. Validate every present file before reporting missing inputs.
+terminal features. When the source report is available, validate every present
+declared file before reporting missing inputs. An absent report makes its
+artifact manifest unavailable and fails explicitly for a partial directory.
 Regenerate the unchanged Milestone 11 experiment automatically only when its
 source directory has no artifacts; partial or corrupt inputs fail explicitly.
 Record source report and artifact hashes and revisions in the new report.
