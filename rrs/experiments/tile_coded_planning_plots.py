@@ -21,6 +21,8 @@ def plot_results(report, directory):
         for col, option in enumerate(CONFIGURATIONS):
             for row, metric in enumerate(("planned_start", "actual_return")):
                 ax = axes[row, col]
+                if row == 0:
+                    ax.set_yscale("symlog", linthresh=1)
                 for rep, label in (("one_hot", "One-hot"), ("tile_coding", "Tiles")):
                     stats = report["cases"][f"{rep}/{source}/{option}"]["summary"][
                         metric
@@ -50,7 +52,6 @@ def plot_results(report, directory):
                 ax.grid(alpha=0.2)
                 ax.legend(fontsize=8)
                 if row == 0:
-                    ax.set_yscale("symlog", linthresh=1)
                     ax.set_ylabel("Planned value (symlog; linear within ±1)")
         fig.suptitle(
             f"Milestone 12 — {source.replace('_', ' ')}; 100 paired seeds, mean ± SE\nSigned values; gaps indicate unresolved metrics"
