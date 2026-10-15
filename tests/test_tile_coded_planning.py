@@ -20,6 +20,7 @@ from rrs.experiments.tile_coded_planning import (
     report_case,
     summary_columns,
 )
+from rrs.experiments.tile_coded_planning_audit import state_space_replay
 from rrs.rl.option_models import LinearExpectationModel
 from rrs.rl.plan_evaluation import induced_policy
 from rrs.rl.planning import planning_step
@@ -106,6 +107,18 @@ def test_missing_metrics_and_nonfinite_parameters_are_explicit():
         "nan",
         1.0,
     ]
+
+
+def test_independent_state_replay_propagates_updates_through_feature_overlap():
+    rewards = np.array([[1.0, 0.0], [-1.0, -1.0]])
+    successor = np.zeros((2, 2, 2))
+    successor[0, 1, 0] = 0.5
+    gram = np.array([[1.0, 0.5], [0.5, 1.0]])
+    replay = state_space_replay(rewards, successor, gram, [0, 1, 0], (0, 2, 4, 6))
+    # First backup sets V0=1 and changes V1 by .5; next targets .5, so no change.
+    assert np.array_equal(replay, [[0.0, 0.0], [1.0, 0.5], [1.0, 0.5], [1.0, 0.5]])
+    with pytest.raises(ValueError, match="cover"):
+        state_space_replay(rewards, successor, gram, [0], (0, 2, 4))
 
 
 @pytest.fixture(scope="module")
